@@ -1,6 +1,7 @@
 import { Noise } from "./noise.js";
 import { Dinosaur } from "../creatures/dinosaur.js";
 import { Food } from "./food.js";
+import { Weather } from "./weather.js";
 
 export class World {
 
@@ -17,10 +18,13 @@ export class World {
         this.creatures = [];
         this.foods = [];
 
+        // 🌦 WEATHER SYSTEM
+        this.weather = new Weather(seed);
+
         this.generate();
 
         this.spawnCreatures();
-        this.spawnFood(); // 🌿 NEW
+        this.spawnFood();
 
     }
 
@@ -59,7 +63,6 @@ export class World {
 
     }
 
-    // 🌿 FOOD SPAWN SYSTEM
     spawnFood() {
 
         for (let i = 0; i < 80; i++) {
@@ -89,14 +92,17 @@ export class World {
 
     update(delta) {
 
-        // 🦖 update creatures
-        for (const c of this.creatures) {
-            c.update(delta);
-        }
+        // 🌦 update weather FIRST
+        this.weather.update(delta);
 
-        // 🌿 update food
+        // 🌿 update food (growth affected later)
         for (const f of this.foods) {
             f.update(delta);
+        }
+
+        // 🦖 update creatures (weather affects behavior later)
+        for (const c of this.creatures) {
+            c.update(delta);
         }
 
         // ☠ cleanup dead food
