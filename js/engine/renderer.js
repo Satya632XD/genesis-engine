@@ -7,7 +7,11 @@ export class Renderer {
         this.canvas = canvas;
         this.ctx = canvas.getContext("2d");
 
-        this.camera = { x: 0, y: 0, zoom: 10 };
+        this.camera = {
+            x: 0,
+            y: 0,
+            zoom: 10
+        };
 
         this.time = 0;
         this.daySpeed = 0.02;
@@ -49,6 +53,7 @@ export class Renderer {
 
     }
 
+    // 🔁 MAIN LOOP
     render(delta) {
 
         this.time += delta * this.daySpeed;
@@ -59,7 +64,12 @@ export class Renderer {
         this.drawSky();
         this.drawStars();
 
-        this.drawTerrain();   // 🌍 NEW
+        this.drawTerrain();
+
+        // 🦖 LIFE SYSTEM UPDATE
+        this.world.update(delta);
+        this.drawCreatures();
+
         this.drawHUD();
 
     }
@@ -104,7 +114,7 @@ export class Renderer {
         this.ctx.fillStyle = sky;
         this.ctx.fillRect(0, 0, this.width, this.height);
 
-        // ☀️ Sun
+        // ☀️ SUN
         this.ctx.fillStyle = "yellow";
         this.ctx.beginPath();
         this.ctx.arc(
@@ -116,7 +126,7 @@ export class Renderer {
         );
         this.ctx.fill();
 
-        // 🌙 Moon
+        // 🌙 MOON
         this.ctx.fillStyle = "#ccc";
         this.ctx.beginPath();
         this.ctx.arc(
@@ -151,10 +161,8 @@ export class Renderer {
 
     }
 
-    // 🌍 REAL TERRAIN RENDERING
+    // 🌍 TERRAIN RENDER
     drawTerrain() {
-
-        const scale = this.camera.zoom;
 
         const tileSize = 4;
 
@@ -172,14 +180,14 @@ export class Renderer {
                 const worldY = y + offsetY;
 
                 const h =
-                this.world.getHeight(worldX, worldY);
+                    this.world.getHeight(worldX, worldY);
 
                 let color;
 
-                if (h < 0.3) color = "#1e4cff";       // water
-                else if (h < 0.4) color = "#d6d07a";  // sand
-                else if (h < 0.7) color = "#1f7a1f";  // grass
-                else color = "#808080";              // mountain
+                if (h < 0.3) color = "#1e4cff";
+                else if (h < 0.4) color = "#d6d07a";
+                else if (h < 0.7) color = "#1f7a1f";
+                else color = "#808080";
 
                 this.ctx.fillStyle = color;
 
@@ -196,6 +204,26 @@ export class Renderer {
 
     }
 
+    // 🦖 DRAW LIFE
+    drawCreatures() {
+
+        for (const c of this.world.creatures) {
+
+            if (!c.alive) continue;
+
+            const x = (c.x - this.camera.x) * 4;
+            const y = (c.y - this.camera.y) * 4;
+
+            this.ctx.fillStyle = "lime";
+
+            this.ctx.beginPath();
+            this.ctx.arc(x, y, c.size, 0, Math.PI * 2);
+            this.ctx.fill();
+
+        }
+
+    }
+
     drawHUD() {
 
         this.ctx.fillStyle = "white";
@@ -205,6 +233,12 @@ export class Renderer {
             `TIME: ${this.time.toFixed(2)}`,
             10,
             this.height - 20
+        );
+
+        this.ctx.fillText(
+            `CREATURES: ${this.world.creatures.length}`,
+            10,
+            this.height - 40
         );
 
     }
