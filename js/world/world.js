@@ -4,6 +4,7 @@ import { Food } from "./food.js";
 import { Weather } from "./weather.js";
 import { Fire } from "./fire.js";
 import { Smoke } from "./smoke.js";
+import { Structure } from "./structure.js";
 
 export class World {
 
@@ -23,24 +24,25 @@ export class World {
         this.foods = [];
         this.fires = [];
         this.smokes = [];
+        this.structures = []; // 🏗 NEW
 
-        // 🧬 tribes (FULL SYSTEM)
+        // 🧬 tribes
         this.tribes = [];
 
-        // 🧩 spawn buffers
+        // 🧩 buffers
         this.pendingCreatures = [];
         this.pendingFires = [];
         this.pendingSmokes = [];
+        this.pendingStructures = [];
 
         this.isUpdating = false;
 
         // 🌦 systems
         this.weather = new Weather(seed);
 
-        // 🔥 world memory
+        // 🌍 memory
         this.burnedTiles = new Set();
 
-        // 🔁 init world
         this.generate();
 
         this.spawnInitialCreatures();
@@ -74,49 +76,32 @@ export class World {
     }
 
     // =========================
-    // 🌱 INITIAL SPAWNS
+    // 🌱 SPAWNS
     // =========================
 
     spawnInitialCreatures() {
-
         for (let i = 0; i < 25; i++) {
-
-            const x = this.randTile();
-            const y = this.randTile();
-
-            this.creatures.push(new Creature(x, y, this));
+            this.spawnCreature(this.rand(), this.rand());
         }
-
     }
 
     spawnInitialFood() {
-
         for (let i = 0; i < 90; i++) {
-
-            const x = this.randTile();
-            const y = this.randTile();
-
-            this.foods.push(new Food(x, y, this));
+            this.foods.push(new Food(this.rand(), this.rand(), this));
         }
-
     }
 
     spawnInitialFire() {
-
         for (let i = 0; i < 2; i++) {
-
-            const x = this.randTile();
-            const y = this.randTile();
-
+            const x = this.rand();
+            const y = this.rand();
             if (!this.isWaterAt(x, y)) {
                 this.fires.push(new Fire(x, y, this, 1));
             }
-
         }
-
     }
 
-    randTile() {
+    rand() {
         return Math.floor(Math.random() * this.size);
     }
 
@@ -130,6 +115,14 @@ export class World {
 
         if (this.isUpdating) this.pendingCreatures.push(c);
         else this.creatures.push(c);
+    }
+
+    spawnStructure(x, y, type, tribe = null) {
+
+        const s = new Structure(x, y, type, tribe);
+
+        if (this.isUpdating) this.pendingStructures.push(s);
+        else this.structures.push(s);
     }
 
     spawnFire(x, y, intensity = 1) {
@@ -167,8 +160,14 @@ export class World {
         return this.getHeight(x, y) < 0.3;
     }
 
-    canBurnAt(x, y) {
-        return !this.isWaterAt(x, y);
+    canBuildAt(x, y) {
+
+        if (this.isWaterAt(x, y)) return false;
+
+        // avoid burned zones for stability
+        if (this.isBurned(x, y)) return false;
+
+        return true;
     }
 
     burnTile(x, y) {
@@ -180,7 +179,7 @@ export class World {
     }
 
     // =========================
-    // 🧬 TRIBE SUPPORT API
+    // 🧬 TRIBES
     // =========================
 
     createTribe() {
@@ -198,9 +197,9 @@ export class World {
         this.tribes.push(tribe);
 
         return {
-            addMember: (creature) => {
-                tribe.members.push(creature);
-                creature.tribe = tribe;
+            addMember: (c) => {
+                tribe.members.push(c);
+                c.tribe = tribe;
             },
             sharedMemory: tribe.sharedMemory,
             territoryCenter: tribe.center
@@ -208,35 +207,27 @@ export class World {
     }
 
     // =========================
-    // 🔁 MAIN UPDATE LOOP
+    // 🔁 UPDATE LOOP
     // =========================
 
     update(delta) {
 
         this.isUpdating = true;
 
-        // 🌦 weather first
         this.weather.update(delta);
 
-        // 🔥 fires
         for (const f of this.fires) f.update(delta);
-
-        // 🌫 smoke
         for (const s of this.smokes) s.update(delta);
-
-        // 🌱 food
         for (const f of this.foods) f.update(delta);
-
-        // 🧠 creatures
         for (const c of this.creatures) c.update(delta);
+        for (const s of this.structures) s.update(delta); // 🏗 NEW
 
-        // 🧹 cleanup
         this.creatures = this.creatures.filter(c => c.alive);
         this.foods = this.foods.filter(f => f.alive);
         this.fires = this.fires.filter(f => f.alive);
         this.smokes = this.smokes.filter(s => s.alive);
+        this.structures = this.structures.filter(s => s.alive);
 
-        // ➕ flush buffers
         if (this.pendingCreatures.length)
             this.creatures.push(...this.pendingCreatures);
 
@@ -246,12 +237,16 @@ export class World {
         if (this.pendingSmokes.length)
             this.smokes.push(...this.pendingSmokes);
 
+        if (this.pendingStructures.length)
+            this.structures.push(...this.pendingStructures);
+
         this.pendingCreatures = [];
         this.pendingFires = [];
         this.pendingSmokes = [];
+        this.pendingStructures = [];
 
         this.isUpdating = false;
 
     }
 
-                    }
+    }
