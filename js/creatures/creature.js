@@ -24,8 +24,20 @@ export class Creature {
 
         if (!this.alive) return;
 
+        const weather = this.world.weather;
+
         this.hunger += delta * 2;
         this.energy -= delta * 1;
+
+        // 🌡 weather affects survival
+        if (weather.state === "storm") {
+            this.energy -= delta * 1.5;
+            this.speed = 0.4;
+        } else if (weather.state === "rain") {
+            this.speed = 0.5;
+        } else {
+            this.speed = 0.6;
+        }
 
         if (this.energy <= 0) {
             this.die();
@@ -33,26 +45,20 @@ export class Creature {
         }
 
         this.ai();
-
         this.move(delta);
 
     }
 
     ai() {
 
-        // ☠ starvation behavior
         if (this.hunger > 60) {
             this.state = "search_food";
         }
 
-        // 🌿 find nearest food
         if (this.state === "search_food" || this.hunger > 30) {
-
             this.target = this.findNearestFood();
-
         }
 
-        // 🧭 wander if no food found
         if (!this.target) {
 
             if (Math.random() < 0.02) {
@@ -81,11 +87,8 @@ export class Creature {
             const d = dx * dx + dy * dy;
 
             if (d < minDist) {
-
                 minDist = d;
-
                 closest = f;
-
             }
 
         }
@@ -105,7 +108,6 @@ export class Creature {
 
         if (dist < 2) {
 
-            // 🍽 EAT IF FOOD
             if (this.target.energy !== undefined) {
 
                 const eaten = this.target.consume(10);
@@ -116,7 +118,6 @@ export class Creature {
             }
 
             this.target = null;
-
             return;
 
         }
@@ -130,4 +131,4 @@ export class Creature {
         this.alive = false;
     }
 
-}
+            }
