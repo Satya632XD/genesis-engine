@@ -1,4 +1,5 @@
 import { Genome } from "./genome.js";
+import { Memory } from "./memory.js";
 
 export class Creature {
 
@@ -9,15 +10,19 @@ export class Creature {
 
         this.world = world;
 
-        // 🧬 evolution system
+        // 🧬 genetics
         this.genome = new Genome(parentGenome);
+
+        // 🧠 memory system (NEW)
+        this.memory = new Memory();
 
         this.energy = 100;
         this.hunger = 0;
-
         this.age = 0;
 
         this.state = "wander";
+
+        this.target = null;
 
         this.size = 3 + this.genome.speed;
 
@@ -37,7 +42,7 @@ export class Creature {
 
         this.reproductionCooldown -= delta;
 
-        this.applyEnvironmentEffects(delta);
+        this.applyEnvironment(delta);
 
         if (this.energy <= 0) {
             this.die();
@@ -50,47 +55,55 @@ export class Creature {
 
     }
 
-    applyEnvironmentEffects(delta) {
+    // =========================
+    // 🌍 ENVIRONMENT LEARNING
+    // =========================
+
+    applyEnvironment(delta) {
 
         const weather = this.world.weather;
 
-        // 🌦 temperature stress
-        if (weather.temperature < 5) {
-            this.energy -= delta * (1 - this.genome.coldResistance);
-        }
-
-        if (weather.temperature > 30) {
-            this.energy -= delta * (1 - this.genome.coldResistance);
-        }
-
-        // 🔥 fire survival advantage
+        // 🔥 learn fire danger
         for (const fire of this.world.fires) {
 
             const dx = fire.x - this.x;
             const dy = fire.y - this.y;
 
-            const dist = Math.sqrt(dx * dx + dy * dy);
+            const dist = dx * dx + dy * dy;
 
-            if (dist < 12) {
+            if (dist < 200) {
 
-                const damage =
-                    delta * 12 *
-                    (1 - this.genome.fireResistance);
+                this.memory.rememberDanger(fire.x, fire.y);
 
-                this.energy -= damage;
+                this.energy -= delta * 10 * (1 - this.genome.fireResistance);
 
                 if (this.genome.fear > 0.5) {
                     this.state = "panic";
-                    this.speed = this.genome.speed * 1.5;
                 }
 
             }
 
         }
 
+        // 🌡 temperature effect
+        if (weather.temperature < 5 || weather.temperature > 30) {
+            this.energy -= delta * (1 - this.genome.coldResistance);
+        }
+
     }
 
+    // =========================
+    // 🧠 AI DECISION SYSTEM
+    // =========================
+
     ai() {
+
+        // ⚠️ avoid known danger zones FIRST
+        if (this.memory.isDangerNearby(this.x, this.y)) {
+            this.state = "avoid";
+            this.target = this.findSafeDirection();
+            return;
+        }
 
         if (this.hunger > 60) {
             this.state = "search_food";
@@ -101,13 +114,53 @@ export class Creature {
         }
 
         if (!this.target && Math.random() < 0.02) {
+
             this.state = "wander";
 
             this.target = {
-                x: this.x + (Math.random() - 0.5) * 40,
-                y: this.y + (Math.random() - 0.5) * 40
+                x: this.x + (Math.random() - 0.5) * 50,
+                y: this.y + (Math.random() - 0.5) * 50
             };
+
         }
+
+    }
+
+    // =========================
+    // 🧭 SAFE MOVEMENT
+    // =========================
+
+    findSafeDirection() {
+
+        // pick direction farthest from danger memory
+
+        let best = { x: this.x, y: this.y };
+        let bestScore = -Infinity;
+
+        for (let i = 0; i < 6; i++) {
+
+            const tx = this.x + (Math.random() - 0.5) * 80;
+            const ty = this.y + (Math.random() - 0.5) * 80;
+
+            let score = 0;
+
+            for (const d of this.memory.dangerZones) {
+
+                const dx = tx - d.x;
+                const dy = ty - d.y;
+
+                score += dx * dx + dy * dy;
+
+            }
+
+            if (score > bestScore) {
+                bestScore = score;
+                best = { x: tx, y: ty };
+            }
+
+        }
+
+        return best;
 
     }
 
@@ -124,8 +177,12 @@ export class Creature {
             const d = dx * dx + dy * dy;
 
             if (d < minDist && d < this.genome.vision * this.genome.vision) {
+
                 minDist = d;
                 closest = f;
+
+                // 🧠 learn food location
+                this.memory.rememberFood(f.x, f.y);
             }
 
         }
@@ -133,6 +190,10 @@ export class Creature {
         return closest;
 
     }
+
+    // =========================
+    // 🚶 MOVEMENT
+    // =========================
 
     move(delta) {
 
@@ -168,6 +229,10 @@ export class Creature {
 
     }
 
+    // =========================
+    // 🧬 REPRODUCTION
+    // =========================
+
     tryReproduce() {
 
         if (this.reproductionCooldown > 0) return;
@@ -191,6 +256,14 @@ export class Creature {
     }
 
     die() {
+
+        // 🧠 death leaves memory in others (emergent fear spread)
+        this.world.creatures.forEach(c => {
+            if (c !== this) {
+                c.memory.rememberDanger(this.x, this.y);
+            }
+        });
+
         this.alive = false;
     }
 
