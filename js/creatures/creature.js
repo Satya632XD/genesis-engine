@@ -7,23 +7,16 @@ export class Creature {
 
         this.world = world;
 
-        // 🧠 basic stats
         this.energy = 100;
         this.hunger = 0;
 
-        this.speed = 0.5;
+        this.speed = 0.6;
 
-        this.direction = Math.random() * Math.PI * 2;
+        this.target = null;
 
         this.size = 4;
 
         this.alive = true;
-
-        // AI state
-        this.state = "wander";
-
-        this.targetX = x;
-        this.targetY = y;
 
     }
 
@@ -47,65 +40,94 @@ export class Creature {
 
     ai() {
 
-        // 🧠 BASIC SURVIVAL AI
-
-        if (this.hunger > 50) {
+        // ☠ starvation behavior
+        if (this.hunger > 60) {
             this.state = "search_food";
         }
 
-        if (this.hunger > 100) {
-            this.state = "panic";
+        // 🌿 find nearest food
+        if (this.state === "search_food" || this.hunger > 30) {
+
+            this.target = this.findNearestFood();
+
         }
 
-        if (this.state === "wander") {
+        // 🧭 wander if no food found
+        if (!this.target) {
 
-            if (Math.random() < 0.01) {
+            if (Math.random() < 0.02) {
 
-                this.targetX = this.x + (Math.random() - 0.5) * 50;
-                this.targetY = this.y + (Math.random() - 0.5) * 50;
+                this.target = {
+                    x: this.x + (Math.random() - 0.5) * 40,
+                    y: this.y + (Math.random() - 0.5) * 40
+                };
 
             }
 
         }
 
-        if (this.state === "search_food") {
+    }
 
-            this.targetX += (Math.random() - 0.5) * 2;
-            this.targetY += (Math.random() - 0.5) * 2;
+    findNearestFood() {
+
+        let closest = null;
+        let minDist = Infinity;
+
+        for (const f of this.world.foods) {
+
+            const dx = f.x - this.x;
+            const dy = f.y - this.y;
+
+            const d = dx * dx + dy * dy;
+
+            if (d < minDist) {
+
+                minDist = d;
+
+                closest = f;
+
+            }
 
         }
+
+        return closest;
 
     }
 
     move(delta) {
 
-        const dx = this.targetX - this.x;
-        const dy = this.targetY - this.y;
+        if (!this.target) return;
+
+        const dx = this.target.x - this.x;
+        const dy = this.target.y - this.y;
 
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        if (dist > 1) {
+        if (dist < 2) {
 
-            this.x += (dx / dist) * this.speed;
-            this.y += (dy / dist) * this.speed;
+            // 🍽 EAT IF FOOD
+            if (this.target.energy !== undefined) {
+
+                const eaten = this.target.consume(10);
+
+                this.energy += eaten;
+                this.hunger -= eaten;
+
+            }
+
+            this.target = null;
+
+            return;
 
         }
 
-    }
-
-    eat(amount) {
-
-        this.hunger -= amount;
-        this.energy += amount;
-
-        if (this.hunger < 0) this.hunger = 0;
+        this.x += (dx / dist) * this.speed;
+        this.y += (dy / dist) * this.speed;
 
     }
 
     die() {
-
         this.alive = false;
-
     }
 
 }
