@@ -20,6 +20,13 @@ class Engine {
 
         requestAnimationFrame(this.loop);
 
+        const loadingScreen =
+        document.getElementById("loadingScreen");
+
+        if (loadingScreen) {
+            loadingScreen.style.display = "none";
+        }
+
     }
 
     loop(time) {
