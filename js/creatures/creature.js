@@ -13,6 +13,7 @@ export class Creature {
         this.speed = 0.6;
 
         this.target = null;
+        this.state = "wander";
 
         this.size = 4;
 
@@ -29,7 +30,7 @@ export class Creature {
         this.hunger += delta * 2;
         this.energy -= delta * 1;
 
-        // 🌡 weather affects survival
+        // 🌦 weather affects survival
         if (weather.state === "storm") {
             this.energy -= delta * 1.5;
             this.speed = 0.4;
@@ -39,6 +40,9 @@ export class Creature {
             this.speed = 0.6;
         }
 
+        // 🔥 fire danger
+        this.reactToFire(delta);
+
         if (this.energy <= 0) {
             this.die();
             return;
@@ -46,6 +50,31 @@ export class Creature {
 
         this.ai();
         this.move(delta);
+
+    }
+
+    reactToFire(delta) {
+
+        let nearFire = false;
+
+        for (const fire of this.world.fires) {
+
+            const dx = fire.x - this.x;
+            const dy = fire.y - this.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < 12) {
+                nearFire = true;
+                this.energy -= delta * 10 * fire.intensity;
+                this.hunger += delta * 2;
+            }
+
+        }
+
+        if (nearFire) {
+            this.state = "panic";
+            this.speed = 1.0;
+        }
 
     }
 
@@ -62,6 +91,8 @@ export class Creature {
         if (!this.target) {
 
             if (Math.random() < 0.02) {
+
+                this.state = "wander";
 
                 this.target = {
                     x: this.x + (Math.random() - 0.5) * 40,
@@ -108,12 +139,14 @@ export class Creature {
 
         if (dist < 2) {
 
-            if (this.target.energy !== undefined) {
+            if (this.target.energy !== undefined && this.target.alive !== false) {
 
                 const eaten = this.target.consume(10);
 
                 this.energy += eaten;
                 this.hunger -= eaten;
+
+                if (this.hunger < 0) this.hunger = 0;
 
             }
 
@@ -131,4 +164,4 @@ export class Creature {
         this.alive = false;
     }
 
-            }
+}
