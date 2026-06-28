@@ -1,3 +1,5 @@
+import { Smoke } from "./smoke.js";
+
 export class Fire {
 
     constructor(x, y, world, intensity = 1) {
@@ -8,6 +10,7 @@ export class Fire {
         this.world = world;
 
         this.intensity = intensity;
+
         this.radius = 2 + intensity * 2;
 
         this.age = 0;
@@ -28,60 +31,82 @@ export class Fire {
 
         const weather = this.world.weather;
 
-        // 🌧 Rain weakens fire
+        // 🌧 Rain extinguishes fire strongly
         if (weather.state === "rain") {
-            this.intensity -= delta * 0.35;
-        } else if (weather.state === "storm") {
             this.intensity -= delta * 0.6;
+        } else if (weather.state === "storm") {
+            this.intensity -= delta * 0.9;
         } else {
-            this.intensity -= delta * 0.05;
+            this.intensity -= delta * 0.08;
         }
 
-        // 🌪 Wind can push fire spread direction
-        const windX = weather.wind * 0.8;
-        const windY = weather.wind * 0.3;
+        // 🌪 wind influence
+        const windX = weather.wind * 0.6;
+        const windY = weather.wind * 0.2;
 
-        // 🔥 Burn nearby terrain tiles
+        // 🔥 burn terrain
         this.burnTerrain();
 
-        // 🌿 Burn nearby food
+        // 🌿 burn food
         this.burnFood(delta);
 
-        // 🦖 Burn nearby creatures
+        // 🦖 burn creatures
         this.burnCreatures(delta);
 
-        // 🔁 Spread fire periodically
-        if (this.spreadTimer >= 1.2 && this.intensity > 0.25) {
+        // 🌫 smoke generation
+        this.spawnSmoke();
+
+        // 🔁 fire spread
+        if (this.spreadTimer >= 1.0 && this.intensity > 0.25) {
 
             this.spreadTimer = 0;
 
-            const chance = weather.state === "clear" ? 0.45 : 0.15;
+            const baseChance =
+                weather.state === "clear" ? 0.5 :
+                weather.state === "rain" ? 0.1 :
+                0.2;
 
-            if (Math.random() < chance) {
+            if (Math.random() < baseChance) {
 
                 const angle = Math.random() * Math.PI * 2;
 
-                const distance = 4 + Math.random() * 6;
+                const distance = 4 + Math.random() * 8;
 
                 const nx = this.x + Math.cos(angle) * distance + windX;
                 const ny = this.y + Math.sin(angle) * distance + windY;
 
                 if (this.world.canBurnAt(nx, ny)) {
-                    this.world.spawnFire(nx, ny, this.intensity * 0.7);
+                    this.world.spawnFire(nx, ny, this.intensity * 0.75);
                 }
 
             }
 
         }
 
-        // 🧯 Fire dies out
+        // 🌊 water extinguishes faster
+        if (this.world.isWaterAt(this.x, this.y)) {
+            this.intensity -= delta * 1.8;
+        }
+
         if (this.intensity <= 0.05) {
             this.alive = false;
         }
 
-        // 🌊 Water / wet zones extinguish fire faster
-        if (this.world.isWaterAt(this.x, this.y)) {
-            this.intensity -= delta * 1.5;
+    }
+
+    spawnSmoke() {
+
+        if (Math.random() < 0.4) {
+
+            this.world.smokes.push(
+                new Smoke(
+                    this.x + (Math.random() - 0.5),
+                    this.y + (Math.random() - 0.5),
+                    this.world,
+                    this.intensity
+                )
+            );
+
         }
 
     }
@@ -91,7 +116,6 @@ export class Fire {
         const r = Math.floor(this.radius);
 
         for (let dx = -r; dx <= r; dx++) {
-
             for (let dy = -r; dy <= r; dy++) {
 
                 const px = Math.floor(this.x + dx);
@@ -104,7 +128,6 @@ export class Fire {
                 }
 
             }
-
         }
 
     }
@@ -117,10 +140,11 @@ export class Fire {
 
             const dx = food.x - this.x;
             const dy = food.y - this.y;
+
             const dist = Math.sqrt(dx * dx + dy * dy);
 
             if (dist < 8) {
-                food.energy -= delta * 25 * this.intensity;
+                food.energy -= delta * 30 * this.intensity;
                 if (food.energy <= 0) {
                     food.alive = false;
                 }
@@ -138,15 +162,16 @@ export class Fire {
 
             const dx = creature.x - this.x;
             const dy = creature.y - this.y;
+
             const dist = Math.sqrt(dx * dx + dy * dy);
 
             if (dist < 10) {
-                creature.energy -= delta * 20 * this.intensity;
-                creature.hunger += delta * 5 * this.intensity;
+                creature.energy -= delta * 25 * this.intensity;
+                creature.hunger += delta * 6 * this.intensity;
             }
 
         }
 
     }
 
-}
+        }
