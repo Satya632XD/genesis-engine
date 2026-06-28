@@ -21,7 +21,7 @@ export class Renderer {
         // 🌠 Background stars
         this.stars = this.generateStars(200);
 
-        // 🌍 World (now includes weather + ecosystem)
+        // 🌍 World
         this.world = new World(seed);
 
         this.resize();
@@ -74,13 +74,16 @@ export class Renderer {
         // 🌍 SIMULATION STEP
         this.world.update(delta);
 
+        // 🔥 fire
+        this.drawFires();
+
         // 🦖 creatures
         this.drawCreatures();
 
         // 🌱 food
         this.drawFood();
 
-        // 🌦 weather visuals (HUD only for now)
+        // 📊 HUD
         this.drawHUD();
 
     }
@@ -200,6 +203,14 @@ export class Renderer {
                 else if (h < 0.7) color = "#1f7a1f";  // grass
                 else color = "#808080";               // mountain
 
+                // 🔥 burned tiles darken terrain
+                if (this.world.isBurned(worldX, worldY)) {
+                    if (h < 0.3) color = "#12336b";
+                    else if (h < 0.4) color = "#6d6540";
+                    else if (h < 0.7) color = "#3a2a16";
+                    else color = "#2a2a2a";
+                }
+
                 this.ctx.fillStyle = color;
 
                 this.ctx.fillRect(
@@ -210,6 +221,50 @@ export class Renderer {
                 );
 
             }
+
+        }
+
+    }
+
+    // 🔥 FIRE
+    drawFires() {
+
+        for (const fire of this.world.fires) {
+
+            const fx = (fire.x - this.camera.x) * 4;
+            const fy = (fire.y - this.camera.y) * 4;
+
+            const flicker = 1 + Math.sin(this.time * 30 + fire.x + fire.y) * 0.2;
+            const radius = (6 + fire.intensity * 6) * flicker;
+
+            // glow
+            this.ctx.globalAlpha = 0.25;
+            this.ctx.fillStyle = "orange";
+            this.ctx.beginPath();
+            this.ctx.arc(fx, fy, radius * 1.6, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            // core flame
+            this.ctx.globalAlpha = 0.95;
+            this.ctx.fillStyle = "red";
+            this.ctx.beginPath();
+            this.ctx.arc(fx, fy, radius * 0.7, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            // flame tip
+            this.ctx.fillStyle = "yellow";
+            this.ctx.beginPath();
+            this.ctx.arc(fx, fy - radius * 0.2, radius * 0.35, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            // smoke puff
+            this.ctx.globalAlpha = 0.18;
+            this.ctx.fillStyle = "#666";
+            this.ctx.beginPath();
+            this.ctx.arc(fx + 3, fy - 10, radius * 0.9, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            this.ctx.globalAlpha = 1;
 
         }
 
@@ -278,17 +333,23 @@ export class Renderer {
         );
 
         this.ctx.fillText(
-            `WEATHER: ${this.world.weather.state.toUpperCase()}`,
+            `FIRE: ${this.world.fires.length}`,
             10,
             this.height - 80
         );
 
         this.ctx.fillText(
-            `TEMP: ${this.world.weather.temperature.toFixed(1)}°C`,
+            `WEATHER: ${this.world.weather.state.toUpperCase()}`,
             10,
             this.height - 100
         );
 
-    }
+        this.ctx.fillText(
+            `TEMP: ${this.world.weather.temperature.toFixed(1)}°C`,
+            10,
+            this.height - 120
+        );
 
     }
+
+}
