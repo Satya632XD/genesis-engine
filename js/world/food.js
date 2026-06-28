@@ -21,9 +21,24 @@ export class Food {
 
         if (!this.alive) return;
 
-        // 🌱 slow regrowth simulation
-        this.growth += delta * 0.01;
+        const weather = this.world.weather;
 
+        // 🌧 rain boosts growth
+        if (weather.state === "rain") {
+            this.growth += delta * 0.02;
+        }
+
+        // 🌪 storm slows growth
+        if (weather.state === "storm") {
+            this.growth += delta * 0.005;
+        }
+
+        // 🌱 normal growth
+        if (weather.state === "clear") {
+            this.growth += delta * 0.01;
+        }
+
+        // 🌿 cap growth
         if (this.growth > 1) {
             this.energy = 30;
             this.growth = 1;
@@ -42,4 +57,4 @@ export class Food {
         return amount;
     }
 
-}
+            }
