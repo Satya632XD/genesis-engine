@@ -171,12 +171,15 @@ export class World {
 
     getHeight(x, y) {
 
+        const ix = Math.floor(x);
+        const iy = Math.floor(y);
+
         if (
-            x < 0 || y < 0 ||
-            x >= this.size || y >= this.size
+            ix < 0 || iy < 0 ||
+            ix >= this.size || iy >= this.size
         ) return 0;
 
-        return this.heightMap[x][y];
+        return this.heightMap[ix][iy];
 
     }
 
