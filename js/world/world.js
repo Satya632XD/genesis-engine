@@ -2,6 +2,7 @@ import { Noise } from "./noise.js";
 import { Dinosaur } from "../creatures/dinosaur.js";
 import { Food } from "./food.js";
 import { Weather } from "./weather.js";
+import { Fire } from "./fire.js";
 
 export class World {
 
@@ -17,14 +18,21 @@ export class World {
 
         this.creatures = [];
         this.foods = [];
+        this.fires = [];
 
-        // 🌦 WEATHER SYSTEM
+        this.pendingFires = [];
+        this.isUpdating = false;
+
         this.weather = new Weather(seed);
+
+        // 🧨 burned terrain memory
+        this.burnedTiles = new Set();
 
         this.generate();
 
         this.spawnCreatures();
         this.spawnFood();
+        this.spawnInitialFire();
 
     }
 
@@ -78,12 +86,74 @@ export class World {
 
     }
 
+    spawnInitialFire() {
+
+        for (let i = 0; i < 2; i++) {
+
+            const x = Math.floor(Math.random() * this.size);
+            const y = Math.floor(Math.random() * this.size);
+
+            if (!this.isWaterAt(x, y)) {
+                this.fires.push(new Fire(x, y, this, 1));
+            }
+
+        }
+
+    }
+
+    spawnFire(x, y, intensity = 1) {
+
+        const fire = new Fire(x, y, this, intensity);
+
+        if (this.isUpdating) {
+            this.pendingFires.push(fire);
+        } else {
+            this.fires.push(fire);
+        }
+
+    }
+
+    burnTile(x, y) {
+
+        if (
+            x < 0 || y < 0 ||
+            x >= this.size || y >= this.size
+        ) return;
+
+        this.burnedTiles.add(`${x},${y}`);
+
+    }
+
+    isBurned(x, y) {
+
+        return this.burnedTiles.has(`${x},${y}`);
+
+    }
+
+    isWaterAt(x, y) {
+
+        const h = this.getHeight(Math.floor(x), Math.floor(y));
+        return h < 0.3;
+    }
+
+    canBurnAt(x, y) {
+
+        if (
+            x < 0 || y < 0 ||
+            x >= this.size || y >= this.size
+        ) return false;
+
+        if (this.isWaterAt(x, y)) return false;
+
+        return true;
+
+    }
+
     getHeight(x, y) {
 
         if (
             x < 0 || y < 0 ||
-            x >= this.size ||
-            y >= this.size
+            x >= this.size || y >= this.size
         ) return 0;
 
         return this.heightMap[x][y];
@@ -92,21 +162,40 @@ export class World {
 
     update(delta) {
 
-        // 🌦 update weather FIRST
+        this.isUpdating = true;
+        this.pendingFires = [];
+
+        // 🌦 weather first
         this.weather.update(delta);
 
-        // 🌿 update food (growth affected later)
-        for (const f of this.foods) {
-            f.update(delta);
+        // 🔥 update fires before life so fire can affect creatures this frame
+        for (const fire of this.fires) {
+            fire.update(delta);
         }
 
-        // 🦖 update creatures (weather affects behavior later)
-        for (const c of this.creatures) {
-            c.update(delta);
+        // 🌿 update food
+        for (const food of this.foods) {
+            food.update(delta);
         }
 
-        // ☠ cleanup dead food
-        this.foods = this.foods.filter(f => f.alive);
+        // 🦖 update creatures
+        for (const creature of this.creatures) {
+            creature.update(delta);
+        }
+
+        // 🧹 cleanup dead food
+        this.foods = this.foods.filter(food => food.alive);
+
+        // 🧹 cleanup dead fires
+        this.fires = this.fires.filter(fire => fire.alive);
+
+        // ➕ add spawned fires
+        if (this.pendingFires.length > 0) {
+            this.fires.push(...this.pendingFires);
+        }
+
+        this.pendingFires = [];
+        this.isUpdating = false;
 
     }
 
