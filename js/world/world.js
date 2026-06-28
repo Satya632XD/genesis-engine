@@ -15,15 +15,19 @@ export class World {
 
         this.size = 200;
 
-        // 🌍 core simulation data
+        // 🌍 terrain
         this.heightMap = [];
 
+        // 🧠 entities
         this.creatures = [];
         this.foods = [];
         this.fires = [];
         this.smokes = [];
 
-        // 🧠 evolution + event buffers
+        // 🧬 tribes (FULL SYSTEM)
+        this.tribes = [];
+
+        // 🧩 spawn buffers
         this.pendingCreatures = [];
         this.pendingFires = [];
         this.pendingSmokes = [];
@@ -33,13 +37,12 @@ export class World {
         // 🌦 systems
         this.weather = new Weather(seed);
 
-        // 🌱 world state memory
+        // 🔥 world memory
         this.burnedTiles = new Set();
 
-        // 🔁 generate world
+        // 🔁 init world
         this.generate();
 
-        // 🌱 initial ecosystem
         this.spawnInitialCreatures();
         this.spawnInitialFood();
         this.spawnInitialFire();
@@ -47,7 +50,7 @@ export class World {
     }
 
     // =========================
-    // 🌍 WORLD GENERATION
+    // 🌍 GENERATION
     // =========================
 
     generate() {
@@ -118,7 +121,7 @@ export class World {
     }
 
     // =========================
-    // 🧠 SPAWN SYSTEMS
+    // 🧠 SPAWN SYSTEM
     // =========================
 
     spawnCreature(x, y, parentGenome = null) {
@@ -146,7 +149,7 @@ export class World {
     }
 
     // =========================
-    // 🌍 TERRAIN ACCESS
+    // 🌍 TERRAIN
     // =========================
 
     getHeight(x, y) {
@@ -165,10 +168,7 @@ export class World {
     }
 
     canBurnAt(x, y) {
-
-        if (this.isWaterAt(x, y)) return false;
-        return true;
-
+        return !this.isWaterAt(x, y);
     }
 
     burnTile(x, y) {
@@ -180,6 +180,34 @@ export class World {
     }
 
     // =========================
+    // 🧬 TRIBE SUPPORT API
+    // =========================
+
+    createTribe() {
+
+        const tribe = {
+            id: this.tribes.length,
+            members: [],
+            sharedMemory: {
+                dangerZones: [],
+                foodZones: []
+            },
+            center: { x: 100, y: 100 }
+        };
+
+        this.tribes.push(tribe);
+
+        return {
+            addMember: (creature) => {
+                tribe.members.push(creature);
+                creature.tribe = tribe;
+            },
+            sharedMemory: tribe.sharedMemory,
+            territoryCenter: tribe.center
+        };
+    }
+
+    // =========================
     // 🔁 MAIN UPDATE LOOP
     // =========================
 
@@ -187,7 +215,7 @@ export class World {
 
         this.isUpdating = true;
 
-        // 🌦 weather first (global influence)
+        // 🌦 weather first
         this.weather.update(delta);
 
         // 🔥 fires
@@ -199,16 +227,16 @@ export class World {
         // 🌱 food
         for (const f of this.foods) f.update(delta);
 
-        // 🧠 creatures (evolution happens here)
+        // 🧠 creatures
         for (const c of this.creatures) c.update(delta);
 
-        // 🧹 cleanup dead entities
+        // 🧹 cleanup
+        this.creatures = this.creatures.filter(c => c.alive);
+        this.foods = this.foods.filter(f => f.alive);
         this.fires = this.fires.filter(f => f.alive);
         this.smokes = this.smokes.filter(s => s.alive);
-        this.foods = this.foods.filter(f => f.alive);
-        this.creatures = this.creatures.filter(c => c.alive);
 
-        // ➕ flush pending spawns
+        // ➕ flush buffers
         if (this.pendingCreatures.length)
             this.creatures.push(...this.pendingCreatures);
 
@@ -226,4 +254,4 @@ export class World {
 
     }
 
-                }
+                    }
