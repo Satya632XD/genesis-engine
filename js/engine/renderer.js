@@ -7,21 +7,21 @@ export class Renderer {
         this.canvas = canvas;
         this.ctx = canvas.getContext("2d");
 
-        // 🎥 camera system
+        // 🎥 Camera system
         this.camera = {
             x: 0,
             y: 0,
             zoom: 10
         };
 
-        // ⏱ time system
+        // ⏱ Time system
         this.time = 0;
         this.daySpeed = 0.02;
 
-        // 🌠 stars
+        // 🌠 Background stars
         this.stars = this.generateStars(200);
 
-        // 🌍 world
+        // 🌍 World (now includes weather + ecosystem)
         this.world = new World(seed);
 
         this.resize();
@@ -71,15 +71,16 @@ export class Renderer {
 
         this.drawTerrain();
 
-        // 🌿 ecosystem update
+        // 🌍 SIMULATION STEP
         this.world.update(delta);
 
-        // 🦖 entities
+        // 🦖 creatures
         this.drawCreatures();
 
         // 🌱 food
         this.drawFood();
 
+        // 🌦 weather visuals (HUD only for now)
         this.drawHUD();
 
     }
@@ -125,7 +126,7 @@ export class Renderer {
         this.ctx.fillStyle = sky;
         this.ctx.fillRect(0, 0, this.width, this.height);
 
-        // ☀️ sun
+        // ☀️ SUN
         this.ctx.fillStyle = "yellow";
         this.ctx.beginPath();
         this.ctx.arc(
@@ -137,7 +138,7 @@ export class Renderer {
         );
         this.ctx.fill();
 
-        // 🌙 moon
+        // 🌙 MOON
         this.ctx.fillStyle = "#ccc";
         this.ctx.beginPath();
         this.ctx.arc(
@@ -172,7 +173,7 @@ export class Renderer {
 
     }
 
-    // 🌍 TERRAIN RENDERING
+    // 🌍 TERRAIN
     drawTerrain() {
 
         const tileSize = 4;
@@ -252,6 +253,7 @@ export class Renderer {
 
     }
 
+    // 📊 HUD
     drawHUD() {
 
         this.ctx.fillStyle = "white";
@@ -275,6 +277,18 @@ export class Renderer {
             this.height - 60
         );
 
+        this.ctx.fillText(
+            `WEATHER: ${this.world.weather.state.toUpperCase()}`,
+            10,
+            this.height - 80
+        );
+
+        this.ctx.fillText(
+            `TEMP: ${this.world.weather.temperature.toFixed(1)}°C`,
+            10,
+            this.height - 100
+        );
+
     }
 
-            }
+    }
