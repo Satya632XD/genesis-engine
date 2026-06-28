@@ -1,5 +1,6 @@
 import { Noise } from "./noise.js";
 import { Dinosaur } from "../creatures/dinosaur.js";
+import { Food } from "./food.js";
 
 export class World {
 
@@ -14,13 +15,15 @@ export class World {
         this.heightMap = [];
 
         this.creatures = [];
+        this.foods = [];
 
         this.generate();
+
         this.spawnCreatures();
+        this.spawnFood(); // 🌿 NEW
 
     }
 
-    // 🌍 TERRAIN GENERATION
     generate() {
 
         for (let x = 0; x < this.size; x++) {
@@ -32,10 +35,8 @@ export class World {
                 const nx = x / 50;
                 const ny = y / 50;
 
-                const elevation =
+                this.heightMap[x][y] =
                     this.noise.fbm(nx, ny, 5);
-
-                this.heightMap[x][y] = elevation;
 
             }
 
@@ -43,7 +44,6 @@ export class World {
 
     }
 
-    // 🦖 SPAWN INITIAL LIFE
     spawnCreatures() {
 
         for (let i = 0; i < 20; i++) {
@@ -59,7 +59,22 @@ export class World {
 
     }
 
-    // 📊 HEIGHT ACCESS
+    // 🌿 FOOD SPAWN SYSTEM
+    spawnFood() {
+
+        for (let i = 0; i < 80; i++) {
+
+            const x = Math.floor(Math.random() * this.size);
+            const y = Math.floor(Math.random() * this.size);
+
+            this.foods.push(
+                new Food(x, y, this)
+            );
+
+        }
+
+    }
+
     getHeight(x, y) {
 
         if (
@@ -72,12 +87,20 @@ export class World {
 
     }
 
-    // 🔁 UPDATE ALL CREATURES
     update(delta) {
 
+        // 🦖 update creatures
         for (const c of this.creatures) {
             c.update(delta);
         }
+
+        // 🌿 update food
+        for (const f of this.foods) {
+            f.update(delta);
+        }
+
+        // ☠ cleanup dead food
+        this.foods = this.foods.filter(f => f.alive);
 
     }
 
