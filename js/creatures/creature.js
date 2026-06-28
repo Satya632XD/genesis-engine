@@ -13,15 +13,18 @@ export class Creature {
         // 🧬 genetics
         this.genome = new Genome(parentGenome);
 
-        // 🧠 memory system (NEW)
+        // 🧠 memory
         this.memory = new Memory();
 
+        // 🧬 tribe
+        this.tribe = null;
+
+        // 🔋 survival stats
         this.energy = 100;
         this.hunger = 0;
         this.age = 0;
 
         this.state = "wander";
-
         this.target = null;
 
         this.size = 3 + this.genome.speed;
@@ -53,17 +56,17 @@ export class Creature {
         this.move(delta);
         this.tryReproduce();
 
+        this.tryJoinTribe();
+        this.syncWithTribe();
+
     }
 
     // =========================
-    // 🌍 ENVIRONMENT LEARNING
+    // 🌍 ENVIRONMENT EFFECTS
     // =========================
 
     applyEnvironment(delta) {
 
-        const weather = this.world.weather;
-
-        // 🔥 learn fire danger
         for (const fire of this.world.fires) {
 
             const dx = fire.x - this.x;
@@ -85,20 +88,14 @@ export class Creature {
 
         }
 
-        // 🌡 temperature effect
-        if (weather.temperature < 5 || weather.temperature > 30) {
-            this.energy -= delta * (1 - this.genome.coldResistance);
-        }
-
     }
 
     // =========================
-    // 🧠 AI DECISION SYSTEM
+    // 🧠 AI CORE
     // =========================
 
     ai() {
 
-        // ⚠️ avoid known danger zones FIRST
         if (this.memory.isDangerNearby(this.x, this.y)) {
             this.state = "avoid";
             this.target = this.findSafeDirection();
@@ -123,71 +120,6 @@ export class Creature {
             };
 
         }
-
-    }
-
-    // =========================
-    // 🧭 SAFE MOVEMENT
-    // =========================
-
-    findSafeDirection() {
-
-        // pick direction farthest from danger memory
-
-        let best = { x: this.x, y: this.y };
-        let bestScore = -Infinity;
-
-        for (let i = 0; i < 6; i++) {
-
-            const tx = this.x + (Math.random() - 0.5) * 80;
-            const ty = this.y + (Math.random() - 0.5) * 80;
-
-            let score = 0;
-
-            for (const d of this.memory.dangerZones) {
-
-                const dx = tx - d.x;
-                const dy = ty - d.y;
-
-                score += dx * dx + dy * dy;
-
-            }
-
-            if (score > bestScore) {
-                bestScore = score;
-                best = { x: tx, y: ty };
-            }
-
-        }
-
-        return best;
-
-    }
-
-    findNearestFood() {
-
-        let closest = null;
-        let minDist = Infinity;
-
-        for (const f of this.world.foods) {
-
-            const dx = f.x - this.x;
-            const dy = f.y - this.y;
-
-            const d = dx * dx + dy * dy;
-
-            if (d < minDist && d < this.genome.vision * this.genome.vision) {
-
-                minDist = d;
-                closest = f;
-
-                // 🧠 learn food location
-                this.memory.rememberFood(f.x, f.y);
-            }
-
-        }
-
-        return closest;
 
     }
 
@@ -229,6 +161,64 @@ export class Creature {
 
     }
 
+    findNearestFood() {
+
+        let closest = null;
+        let minDist = Infinity;
+
+        for (const f of this.world.foods) {
+
+            const dx = f.x - this.x;
+            const dy = f.y - this.y;
+
+            const d = dx * dx + dy * dy;
+
+            if (d < minDist && d < this.genome.vision * this.genome.vision) {
+
+                minDist = d;
+                closest = f;
+
+                this.memory.rememberFood(f.x, f.y);
+            }
+
+        }
+
+        return closest;
+
+    }
+
+    findSafeDirection() {
+
+        let best = { x: this.x, y: this.y };
+        let bestScore = -Infinity;
+
+        for (let i = 0; i < 6; i++) {
+
+            const tx = this.x + (Math.random() - 0.5) * 80;
+            const ty = this.y + (Math.random() - 0.5) * 80;
+
+            let score = 0;
+
+            for (const d of this.memory.dangerZones) {
+
+                const dx = tx - d.x;
+                const dy = ty - d.y;
+
+                score += dx * dx + dy * dy;
+
+            }
+
+            if (score > bestScore) {
+                bestScore = score;
+                best = { x: tx, y: ty };
+            }
+
+        }
+
+        return best;
+
+    }
+
     // =========================
     // 🧬 REPRODUCTION
     // =========================
@@ -255,16 +245,58 @@ export class Creature {
 
     }
 
-    die() {
+    // =========================
+    // 🧠 TRIBE SYSTEM
+    // =========================
 
-        // 🧠 death leaves memory in others (emergent fear spread)
-        this.world.creatures.forEach(c => {
-            if (c !== this) {
-                c.memory.rememberDanger(this.x, this.y);
+    tryJoinTribe() {
+
+        if (this.tribe) return;
+
+        for (const other of this.world.creatures) {
+
+            if (other === this || !other.tribe) continue;
+
+            const dx = other.x - this.x;
+            const dy = other.y - this.y;
+
+            if (dx * dx + dy * dy < 100) {
+
+                other.tribe.addMember(this);
+                return;
+
             }
-        });
+
+        }
+
+        if (Math.random() < 0.002) {
+            const tribe = this.world.createTribe();
+            tribe.addMember(this);
+        }
+
+    }
+
+    syncWithTribe() {
+
+        if (!this.tribe) return;
+
+        for (const d of this.tribe.sharedMemory.dangerZones) {
+            this.memory.rememberDanger(d.x, d.y);
+        }
+
+        for (const f of this.tribe.sharedMemory.foodZones) {
+            this.memory.rememberFood(f.x, f.y);
+        }
+
+    }
+
+    // =========================
+    // 💀 DEATH
+    // =========================
+
+    die() {
 
         this.alive = false;
     }
 
-}
+                }
